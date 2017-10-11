@@ -24,6 +24,7 @@ static const char rcsid[]="$Id: Swiftnav SBP,v 1.0 2017/02/01 FT $";
 #define ID_MSGEPHGPS       0x0086 /* SBP message id: GPS L1 C/A navigation message */
 #define ID_MSGEPHGLO       0x0088 /* SBP message id: Glonass L1/L2 OF navigation message */
 #define ID_MSGIONGPS       0x0090 /* SBP message id: GPS ionospheric parameters */
+#define ID_MSGEVENT        0x0101 /* SBP message id: EXT EVENT*/
 
 #define SEC_DAY (86400.0)
 
@@ -645,6 +646,60 @@ static int decode_glonav(raw_t *raw) {
   raw->ephsat = sat;
   return 2;
 }
+static int decode_event(raw_t *raw) {
+
+	uint16_t week;
+	uint32_t tow;
+	int32_t ns;
+	trace(4, "SBF decode_msgobs: len=%d\n", raw->len);
+
+	if ((raw->len) < 20) {
+		trace(2, "SBP decode_event frame length error: len=%d\n", raw->len);
+		return -1;
+	}
+
+		gtime_t eventtime;
+		uint8_t ch, flags;
+		uint16_t count, wnR, wnF;
+		uint32_t towMsR, towSubMsR, towMsF, towSubMsF, accEst;
+		int time, timeBase, newRisingEdge, newFallingEdge;
+		unsigned char *p = raw->buff + 6;
+		
+			
+		
+			if (raw->outtype) {
+			sprintf(raw->msgtype, "SBP 0x%04X (%4d)", raw->len);
+			
+		}
+		ch = U1(p);
+		flags = *(p + 10);
+		wnF = U2(p);
+		towMsF = U4(p + 2);
+		towSubMsF = R8(p + 6);
+		
+			    /* extract flags to variables */
+		newFallingEdge = 1;
+		//timeBase = ((flags >> 3) & 0x03);
+		time = 1;
+		
+			if (newFallingEdge)
+			{
+			eventtime = gpst2time(wnF, towMsF*1E-3 + towSubMsF*1E-9);
+			raw->obs.flag = 5; /* Event flag */
+			raw->obs.data[0].eventtime = eventtime;
+			raw->obs.tmarkcount++;
+			raw->obs.data[0].timevalid = 1;
+			}
+			else {
+				raw->obs.flag = 0;
+				
+			}
+			return 0;
+
+	}
+
+
+
 
 /* decode SBF gpsion --------------------------------------------------------*/
 static int decode_gpsion(raw_t *raw){
@@ -712,6 +767,7 @@ static int decode_sbp(raw_t *raw)
   case ID_MSGEPHGPS:      return decode_gpsnav(raw);
   case ID_MSGEPHGLO:      return decode_glonav(raw);
   case ID_MSGIONGPS:      return decode_gpsion(raw);
+  case ID_MSGEVENT:		  return decode_event(raw);
 
   default:
     trace(3,"decode_sbp: unused frame type=%04x len=%d\n",type,raw->len);
@@ -864,7 +920,8 @@ extern int input_sbpjsonf(raw_t *raw, FILE *fp)
       (uMsgType != ID_MSGEPHGPS_DEP1) &&
       (uMsgType != ID_MSGEPHGPS) &&
       (uMsgType != ID_MSGEPHGLO) &&
-      (uMsgType != ID_MSGIONGPS)) {
+      (uMsgType != ID_MSGIONGPS)&&
+	  (uMsgType != ID_MSGEVENT)) {
     return 0;
   }
 

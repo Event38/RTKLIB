@@ -525,6 +525,8 @@ typedef struct {        /* time struct */
 
 typedef struct {        /* observation data record */
     gtime_t time;       /* receiver sampling time (GPST) */
+	gtime_t eventtime;
+	int timevalid;
     unsigned char sat,rcv; /* satellite/receiver number */
     unsigned char SNR [NFREQ+NEXOBS]; /* signal strength (0.25 dBHz) */
     unsigned char LLI [NFREQ+NEXOBS]; /* loss of lock indicator */
@@ -536,6 +538,9 @@ typedef struct {        /* observation data record */
 
 typedef struct {        /* observation data */
     int n,nmax;         /* number of obervation data/allocated */
+	int flag;
+	int rcvcount;
+	int tmarkcount;
     obsd_t *data;       /* observation data records */
 } obs_t;
 
@@ -902,8 +907,9 @@ typedef struct {        /* station parameter type */
     double hgt;         /* antenna height (m) */
 } sta_t;
 
-typedef struct {        /* solution type */
-    gtime_t time;       /* time (GPST) */
+typedef struct {	/* solution type */
+	gtime_t eventtime;
+	gtime_t time;       /* time (GPST) */
     double rr[6];       /* position/velocity (m|m/s) */
                         /* {x,y,z,vx,vy,vz} or {e,n,u,ve,vn,vu} */
     float  qr[6];       /* position variance/covariance (m^2) */

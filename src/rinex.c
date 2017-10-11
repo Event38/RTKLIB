@@ -2036,6 +2036,30 @@ static int obsindex(double ver, int sys, const unsigned char *code,
     }
     return -1;
 }
+/* output rinex event time ---------------------------------------------------*/
+static void outrinexevent(FILE *fp, const rnxopt_t *opt, const obsd_t *obs,const double epdiff)
+	 {
+		int n;
+		double epe[6];
+	
+		time2epoch(obs[0].eventtime, epe);
+		n = obs->timevalid ? 0 : 1;
+	
+		if (opt->rnxver <= 2.99) { /* ver.2 */
+		if (epdiff < 0) fprintf(fp, "\n");
+		fprintf(fp, " %02d %2.0f %2.0f %2.0f %2.0f%11.7f  %d%3d",
+			(int)epe[0] % 100, epe[1], epe[2], epe[3], epe[4], epe[5], 5, n);
+		if (epdiff >= 0) fprintf(fp, "\n");
+		
+	}
+		else { /* ver.3 */
+			fprintf(fp, "> %04.0f %2.0f %2.0f %2.0f %2.0f%11.7f  %d%3d\n",
+				epe[0], epe[1], epe[2], epe[3], epe[4], epe[5], 5, n);
+			
+		}
+		if (n) fprintf(fp, "%-60.60s%-20s\n", " Time mark is not valid", "COMMENT");
+		}
+
 /* output rinex obs body -------------------------------------------------------
 * output rinex obs body
 * args   : FILE   *fp       I   output file pointer
@@ -2049,7 +2073,7 @@ extern int outrnxobsb(FILE *fp, const rnxopt_t *opt, const obsd_t *obs, int n,
                       int flag, double _dClockBias)
 {
     const char *mask;
-    double ep[6];
+    double epdiff,ep[6];
     char sats[MAXOBS][4]={""};
     int i,j,k,m,ns,sys,ind[MAXOBS],s[MAXOBS]={0};
 
@@ -2073,9 +2097,18 @@ extern int outrnxobsb(FILE *fp, const rnxopt_t *opt, const obsd_t *obs, int n,
         if (!opt->nobs[opt->rnxver<=2.99?0:s[ns]]) continue;
         ind[ns++]=i;
     }
+	    /* if epoch of event less than epoch of observation, then first output
+		     time mark, else first output observation record */
+		epdiff = timediff(obs[0].time, obs[0].eventtime);
+	if (flag == 5 && epdiff >= 0) {
+		outrinexevent(fp, opt, obs, epdiff);
+		
+	}
+
+
     if (opt->rnxver<=2.99) { /* ver.2 */
         fprintf(fp," %02d %2.0f %2.0f %2.0f %2.0f%11.7f  %d%3d",
-                (int)ep[0]%100,ep[1],ep[2],ep[3],ep[4],ep[5],flag,ns);
+                (int)ep[0]%100,ep[1],ep[2],ep[3],ep[4],ep[5],0,ns);
         for (i=0;i<ns;i++) {
             if (i>0&&i%12==0) fprintf(fp,"\n%32s","");
             fprintf(fp,"%-3s",sats[i]);
@@ -2119,6 +2152,10 @@ extern int outrnxobsb(FILE *fp, const rnxopt_t *opt, const obsd_t *obs, int n,
         }
         if (opt->rnxver>2.99&&fprintf(fp,"\n")==EOF) return 0;
     }
+	if (flag == 5 && epdiff < 0) {
+		outrinexevent(fp, opt, obs, epdiff);
+		
+	}
     if (opt->rnxver>2.99) return 1;
 
     return fprintf(fp,"\n")!=EOF;
