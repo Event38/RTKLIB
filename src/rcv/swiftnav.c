@@ -675,8 +675,8 @@ static int decode_event(raw_t *raw) {
 		flags = *(p + 10);
 		wnF = U2(p);
 		towMsF = U4(p + 2);
-		towSubMsF = R8(p + 6);
-		
+		towSubMsF = I4(p + 6);
+
 			    /* extract flags to variables */
 		newFallingEdge = 1;
 		//timeBase = ((flags >> 3) & 0x03);
@@ -688,7 +688,7 @@ static int decode_event(raw_t *raw) {
 			raw->obs.flag = 5; /* Event flag */
 			raw->obs.data[0].eventtime = eventtime;
 			raw->obs.tmarkcount++;
-			raw->obs.data[0].timevalid = 1;
+  			raw->obs.data[0].timevalid = 1;
 			}
 			else {
 				raw->obs.flag = 0;
