@@ -2105,9 +2105,9 @@ extern int outrnxobsb(FILE *fp, const rnxopt_t *opt, const obsd_t *obs, int n,
 		
 	}
 
-
+	//mwright
     if (opt->rnxver<=2.99) { /* ver.2 */
-        fprintf(fp," %02d %2.0f %2.0f %2.0f %2.0f%11.7f  %d%3d",
+        fprintf(fp,"  %02d %2.0f %2.0f %2.0f %2.0f%11.7f  %d%3d",
                 (int)ep[0]%100,ep[1],ep[2],ep[3],ep[4],ep[5],0,ns);
         for (i=0;i<ns;i++) {
             if (i>0&&i%12==0) fprintf(fp,"\n%32s","");
