@@ -335,6 +335,10 @@ static void free_strfile(strfile_t *str)
 /* input stream file ---------------------------------------------------------*/
 static int input_strfile(strfile_t *str)
 {
+	if (str->obs->flag == 5) {
+		int mkl = 1;
+	}
+
     int type=0;
 
     trace(4,"input_strfile:\n");
@@ -365,6 +369,9 @@ static int input_strfile(strfile_t *str)
     }
     trace(4,"input_strfile: time=%s type=%d sat=%2d\n",time_str(str->time,3),
           type,str->sat);
+	if (str->obs->flag == 5) {
+		//type = 1;
+	}
     return type;
 }
 /* open stream file ----------------------------------------------------------*/
@@ -937,7 +944,14 @@ static void convobs(FILE **ofp, rnxopt_t *opt, strfile_t *str, int *staid,
     gtime_t time;
     int i;
 
-    trace(3,"convobs :\n");
+	if (str->obs->flag == 5) {
+		int mkl = 23;
+	}
+	gtime_t obs = str->obs->data[0].eventtime;
+	if ((int)obs.time != 0) {
+		int mkl = 1;
+	}
+	trace(3, "convobs :\n");
 
     if (!ofp[0]||str->obs->n<=0) return;
 
@@ -967,10 +981,22 @@ static void convobs(FILE **ofp, rnxopt_t *opt, strfile_t *str, int *staid,
             resolve_halfc(halfc,str->obs->data+i);
         }
     }
-    /* output rinex obs */
-    outrnxobsb(ofp[0],opt,str->obs->data,str->obs->n,0,0.0);
+	/* output event if staid changed */
+	if ((str->format == STRFMT_RTCM2 || str->format == STRFMT_RTCM3) &&
+		str->rtcm.staid != *staid) {
+		if (*staid >= 0) {
+			outrnxevent(ofp[0], opt, str->rtcm.staid, stas);
+		}
+		*staid = str->rtcm.staid;
+	}
+	/* output rinex obs */
+	outrnxobsb(ofp[0],opt,str->obs->data,str->obs->n,str->obs->flag,0.0);
+	/* n[8] - count of events converted to rinex */
+	if (str->obs->flag == 5) n[8]++;
+	/* set to zero flag for the next iteration (initialization) */
+	str->obs->flag = 0;
 
-    if (opt->tstart.time==0) opt->tstart=time;
+	if (opt->tstart.time == 0) opt->tstart = time;
     opt->tend=time;
 
     n[0]++;
@@ -1197,7 +1223,7 @@ static int showstat(int sess, gtime_t ts, gtime_t te, int *n)
     }
     p+=sprintf(p,": ");
 
-    for (i=0;i<NOUTFILE+1;i++) {
+	for (i = 0; i<NOUTFILE + 2; i++) {
         if (n[i]==0) continue;
         p+=sprintf(p,"%c=%d%s",type[i],n[i],i<NOUTFILE?" ":"");
     }
@@ -1213,7 +1239,7 @@ static int convrnx_s(int sess, int format, rnxopt_t *opt, const char *file,
     halfc_t halfc={{{0}}};
     gtime_t ts={0},te={0},tend={0},time={0};
     unsigned char slips[MAXSAT][NFREQ+NEXOBS]={{0}};
-    int i,j,nf,type,n[NOUTFILE+1]={0},staid=-1,abort=0;
+    int i,j,nf,type,n[NOUTFILE+2]={0},staid=-1,abort=0;
     char path[1024],*paths[NOUTFILE],s[NOUTFILE][1024];
     char *epath[MAXEXFILE]={0},*staname=*opt->staid?opt->staid:"0000";
 
@@ -1284,6 +1310,10 @@ static int convrnx_s(int sess, int format, rnxopt_t *opt, const char *file,
 
             /* avioid duplicated if overlapped data */
             if (tend.time&&timediff(str->time,tend)<=0.0) continue;
+
+			if (str->obs->flag == 5) {
+				type = 1;
+			}
 
             /* convert message */
             switch (type) {

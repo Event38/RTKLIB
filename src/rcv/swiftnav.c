@@ -25,6 +25,7 @@ static const char rcsid[] = "$Id: Swiftnav SBP,v 1.0 2017/02/01 FT $";
 #define ID_MSGEPHGPS 0x008A      /* GPS L1 C/A nav message */
 #define ID_MSGEPHBDS 0x0089      /* BDS B1/B2 D1 nav message */
 #define ID_MSGEPHGAL 0x0095      /* GAL E1 I/NAV message */
+#define ID_MSGEVENT  0x0101		/* SBP message id: EXT EVENT*/
 #define ID_MSGEPHGLO_DEP1 0x0088 /* Glonass L1/L2 OF nav message (deprecated)  \
                                     */
 #define ID_MSGEPHGLO 0x008B      /* Glonass L1/L2 OF nav message */
@@ -1072,6 +1073,57 @@ static int decode_glonav(raw_t *raw) {
   raw->ephsat = sat;
   return 2;
 }
+static int decode_event(raw_t *raw) {
+	uint16_t week;
+	uint32_t tow;
+	int32_t ns;
+	trace(4, "SBF decode_msgobs: len=%d\n", raw->len);
+	if ((raw->len) < 20) {
+		trace(2, "SBP decode_event frame length error: len=%d\n", raw->len);
+		return -1;
+	}
+	gtime_t eventtime;
+	uint8_t flags;
+	uint16_t wnF;
+	uint32_t towMsF;
+	int32_t towSubMsF;
+	int time, timeBase, newFallingEdge;
+	uint8_t *p = (raw->buff) + 6;
+
+
+
+	if (raw->outtype) {
+		sprintf(raw->msgtype, "SBP 0x%04X (%4d)", raw->len);
+
+	}
+
+	wnF = U2(p);
+	towMsF = U4(p + 2);
+	towSubMsF = I4(p + 6);
+	flags = (p[10]);
+	newFallingEdge = ((flags) & 0x1) ? 0 : 1;
+	time = ((flags) & 0x2) ? 1 : 0;
+
+	/* extract flags to variables */
+	newFallingEdge = 1;
+	//timeBase = ((flags >> 3) & 0x03);
+	time = 1;
+
+	if (newFallingEdge)
+	{
+		eventtime = gpst2time(wnF, towMsF*1E-3 + towSubMsF * 1E-9);
+		raw->obs.flag = 5; /* Event flag */
+		raw->obs.data[0].eventtime = eventtime;
+		raw->obs.tmarkcount++;
+		raw->obs.data[0].timevalid = 1;
+	}
+	else {
+		raw->obs.flag = 0;
+
+	}
+	return 0;
+}
+
 
 /* decode SBF gpsion --------------------------------------------------------*/
 static int decode_gpsion(raw_t *raw) {
@@ -1192,6 +1244,8 @@ static int decode_sbp(raw_t *raw) {
     return decode_gpsion(raw);
   case ID_MSG_SBAS_RAW:
     return decode_snav(raw);
+  case ID_MSGEVENT:
+	return decode_event(raw);
 
   default:
     trace(3, "decode_sbp: unused frame type=%04x len=%d\n", type, raw->len);
@@ -1349,7 +1403,8 @@ extern int input_sbpjsonf(raw_t *raw, FILE *fp) {
       (uMsgType != ID_MSGEPHGPS_DEP2) && (uMsgType != ID_MSGEPHGPS) &&
       (uMsgType != ID_MSGEPHBDS) && (uMsgType != ID_MSGEPHGAL) &&
       (uMsgType != ID_MSGEPHGLO_DEP1) && (uMsgType != ID_MSGEPHGLO) &&
-      (uMsgType != ID_MSGIONGPS) && (uMsgType != ID_MSG_SBAS_RAW)) {
+      (uMsgType != ID_MSGIONGPS) && (uMsgType != ID_MSG_SBAS_RAW) &&
+	  (uMsgType != ID_MSGEVENT)) {
     return 0;
   }
 
